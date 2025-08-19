@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lexi's Budget Tracker</title>
+  <meta name="description" content="Personal finance management with kitten-themed design and Philippine Peso support" />
+  <meta name="theme-color" content="#fdf2f8" />
+
+  <!-- Tailwind & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    :root { --kitten-pink:#fdf2f8; --kitten-pink-light:#fce7f3; --kitten-accent:#ec4899; --kitten-text:#374151; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:linear-gradient(135deg,var(--kitten-pink),#fce7f3); min-height:100vh; }
+    .kitten-card{background:#fff;border-radius:1rem;border:2px solid var(--kitten-pink-light);box-shadow:0 10px 25px -5px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05)}
+    .kitten-btn{background:var(--kitten-accent);color:#fff;border:none;border-radius:.75rem;padding:.5rem 1rem;font-weight:600;cursor:pointer}
+    .kitten-input{border:2px solid var(--kitten-pink-light);border-radius:.5rem;padding:.5rem}
+    .tab-active{background:var(--kitten-accent);color:#fff}
+    .hidden{display:none!important}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .floating-kitten{animation:float 3s ease-in-out infinite}
+  </style>
+</head>
+<body>
+  <div id="app" class="min-h-screen">
+    <!-- HEADER -->
+    <header class="kitten-card m-4 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <svg class="floating-kitten w-10 h-10" viewBox="0 0 100 100" id="kitten-svg">
+            <circle cx="50" cy="40" r="20" fill="#fdf2f8" stroke="#ec4899" stroke-width="2" />
+            <circle cx="45" cy="35" r="2" fill="#374151" />
+            <circle cx="55" cy="35" r="2" fill="#374151" />
+            <path d="M45 45 Q50 50 55 45" stroke="#ec4899" stroke-width="2" fill="none" />
+          </svg>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Lexi's Budget Tracker</h1>
+            <p id="motivational-quote" class="text-sm text-gray-600">Loading inspiration...</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <div id="current-time" class="text-lg font-semibold text-gray-800">--:--</div>
+          <div id="current-date" class="text-sm text-gray-600">--/--/----</div>
+          <button id="animation-toggle" class="kitten-btn text-xs mt-2"><i class="fas fa-play"></i> Animation</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- NAVIGATION -->
+    <nav class="m-4">
+      <div class="flex flex-wrap gap-2" id="tabs">
+        <button class="tab-btn kitten-btn tab-active" data-tab="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+        <button class="tab-btn kitten-btn" data-tab="quick-setup"><i class="fas fa-cog"></i> Quick Setup</button>
+        <button class="tab-btn kitten-btn" data-tab="transaction-log"><i class="fas fa-list"></i> Transaction Log</button>
+        <button class="tab-btn kitten-btn" data-tab="monthly-budget"><i class="fas fa-calendar"></i> Monthly Budget</button>
+        <button class="tab-btn kitten-btn" data-tab="savings-goals"><i class="fas fa-piggy-bank"></i> Savings & Goals</button>
+        <button class="tab-btn kitten-btn" data-tab="salary-tracker"><i class="fas fa-coins"></i> Live Salary Tracker</button>
+      </div>
+    </nav>
+
+    <!-- GLOBAL CONTROLS -->
+    <div class="m-4 kitten-card p-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <select id="period-toggle" class="kitten-input text-sm">
+          <option value="monthly" selected>Monthly</option>
+          <option value="weekly">Weekly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+        <div class="flex items-center gap-1">
+          <input id="global-search" class="kitten-input text-sm" placeholder="Search..." />
+          <button id="search-btn" class="kitten-btn text-sm"><i class="fas fa-search"></i></button>
+        </div>
+        <div class="ml-auto flex gap-2">
+          <button id="undo-btn" class="kitten-btn text-sm" disabled>Undo</button>
+          <button id="redo-btn" class="kitten-btn text-sm" disabled>Redo</button>
+          <button id="backup-btn" class="kitten-btn text-sm"><i class="fas fa-shield-heart"></i> Backup</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT -->
+    <main class="m-4">
+      <section id="dashboard-tab" class="tab-content kitten-card p-4">Dashboard content</section>
+      <section id="quick-setup-tab" class="tab-content kitten-card p-4 hidden">Quick setup content</section>
+      <section id="transaction-log-tab" class="tab-content kitten-card p-4 hidden">Transactions content</section>
+      <section id="monthly-budget-tab" class="tab-content kitten-card p-4 hidden">Monthly budget content</section>
+      <section id="savings-goals-tab" class="tab-content kitten-card p-4 hidden">
+        <canvas id="savings-chart" height="200"></canvas>
+      </section>
+      <section id="salary-tracker-tab" class="tab-content kitten-card p-4 hidden">Salary tracker content</section>
+    </main>
+  </div>
+
+  <!-- BACKUP MODAL -->
+  <div id="backup-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="kitten-card p-6 w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4">Backup & Restore</h3>
+        <input type="password" id="backup-password" class="kitten-input w-full mb-2" placeholder="Password" />
+        <input type="file" id="restore-file" class="kitten-input w-full" accept=".json" />
+        <div class="flex gap-2 mt-4">
+          <button id="export-btn" class="kitten-btn flex-1">Export</button>
+          <button id="restore-btn" class="kitten-btn flex-1">Restore</button>
+        </div>
+        <button id="close-backup-modal" class="mt-3 text-sm underline">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
+    }
+
+    class BudgetTracker {
+      constructor(){
+        this.data={jobs:[],bills:[],transactions:[],budgets:[],goals:[],settings:{avgWorkdaysPerMonth:22,currency:'₱',dateFormat:'dd/mm/yyyy',timezone:'Asia/Manila'}};
+        this.undoStack=[];this.redoStack=[];this.charts={};this.currentTab='dashboard';this.currentPeriod='monthly';
+        this.motivationalQuotes=[
+          "Every penny saved is a step towards your dreams! 🌟",
+          "Smart budgeting today means financial freedom tomorrow! 💪",
+          "You're doing great managing your finances! Keep it up! 💖"
+        ];
+        this.init();
+      }
+      init(){
+        this.setupEventListeners();
+        this.updateDateTime();
+        this.rotateQuote();
+        this.render();
+      }
+      setupEventListeners(){
+        // ✅ Fixed: use currentTarget not e.target
+        document.querySelectorAll('.tab-btn').forEach(btn=>{
+          btn.addEventListener('click',e=>this.switchTab(e.currentTarget.dataset.tab));
+        });
+        document.getElementById('period-toggle').addEventListener('change',e=>{this.currentPeriod=e.target.value;this.render();});
+        document.getElementById('search-btn').addEventListener('click',()=>this.performGlobalSearch());
+        document.getElementById('animation-toggle').addEventListener('click',()=>this.toggleAnimations());
+        document.getElementById('backup-btn').addEventListener('click',()=>document.getElementById('backup-modal').classList.remove('hidden'));
+        document.getElementById('close-backup-modal').addEventListener('click',()=>document.getElementById('backup-modal').classList.add('hidden'));
+        document.getElementById('export-btn').addEventListener('click',()=>alert('(demo) Export backup'));
+        document.getElementById('restore-btn').addEventListener('click',()=>alert('(demo) Restore backup'));
+      }
+      switchTab(tabName){
+        if(!tabName) return;
+        document.querySelectorAll('.tab-content').forEach(t=>t.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('tab-active'));
+        document.getElementById(tabName+'-tab').classList.remove('hidden');
+        document.querySelector(`[data-tab=\"${tabName}\"]`).classList.add('tab-active');
+        this.currentTab=tabName;
+      }
+      updateDateTime(){
+        const now=new Date();
+        const time=now.toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour12:false,hour:'2-digit',minute:'2-digit'});
+        const date=now.toLocaleDateString('en-GB',{timeZone:'Asia/Manila',day:'2-digit',month:'2-digit',year:'numeric'});
+        document.getElementById('current-time').textContent=time;
+        document.getElementById('current-date').textContent=date;
+      }
+      rotateQuote(){
+        document.getElementById('motivational-quote').textContent=this.motivationalQuotes[Math.floor(Math.random()*this.motivationalQuotes.length)];
+      }
+      render(){ this.renderSavingsChart(); }
+      renderSavingsChart(){
+        const ctx=document.getElementById('savings-chart');
+        if(!ctx) return;
+        if(this.charts.savings){ this.charts.savings.destroy(); }
+        this.charts.savings=new Chart(ctx,{type:'bar',data:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{label:'Monthly Savings',data:new Array(12).fill(0)}]},options:{responsive:true,maintainAspectRatio:false}});
+      }
+      performGlobalSearch(){
+        const term=document.getElementById('global-search').value.toLowerCase();
+        if(!term) return;
+        const total=[...this.data.transactions,...this.data.jobs,...this.data.goals].length;
+        alert(`(demo) Searching for \"${term}\" across ${total} items`);
+      }
+      toggleAnimations(){
+        const svg=document.getElementById('kitten-svg');
+        const btn=document.getElementById('animation-toggle');
+        if(svg.classList.contains('floating-kitten')){
+          svg.classList.remove('floating-kitten');
+          btn.innerHTML='<i class="fas fa-play"></i> Animation';
+        } else {
+          svg.classList.add('floating-kitten');
+          btn.innerHTML='<i class="fas fa-pause"></i> Animation';
+        }
+      }
+    }
+    window.budgetTracker=new BudgetTracker();
+  </script>
+</body>
+</html>
